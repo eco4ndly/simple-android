@@ -14,6 +14,11 @@ import org.junit.runner.RunWith
 import org.simple.clinic.AppDatabase
 import org.simple.clinic.TestClinicApp
 import org.simple.clinic.TestData
+import org.simple.clinic.bloodsugar.BloodSugarMeasurement
+import org.simple.clinic.bloodsugar.BloodSugarReading
+import org.simple.clinic.bloodsugar.BloodSugarRepository
+import org.simple.clinic.bloodsugar.Fasting
+import org.simple.clinic.bloodsugar.Random
 import org.simple.clinic.bp.BloodPressureMeasurement
 import org.simple.clinic.bp.BloodPressureRepository
 import org.simple.clinic.facility.Facility
@@ -57,6 +62,9 @@ class AppointmentRepositoryAndroidTest {
 
   @Inject
   lateinit var bpRepository: BloodPressureRepository
+
+  @Inject
+  lateinit var bloodSugarRepository: BloodSugarRepository
 
   @Inject
   lateinit var medicalHistoryRepository: MedicalHistoryRepository
@@ -357,9 +365,9 @@ class AppointmentRepositoryAndroidTest {
     // then
     assertThat(overdueAppointments.keys).containsExactly(noBpsDeletedPatientUuid, latestBpDeletedPatientUuid, oldestBpNotDeletedPatientUuid)
 
-    val appointmentBpUuidOfNoBpsDeletedPatient = overdueAppointments.getValue(noBpsDeletedPatientUuid).bloodPressure.uuid
-    val appointmentBpUuidOfLatestBpDeletedPatient = overdueAppointments.getValue(latestBpDeletedPatientUuid).bloodPressure.uuid
-    val appointmentBpUuidOfOldestBpDeletedPatient = overdueAppointments.getValue(oldestBpNotDeletedPatientUuid).bloodPressure.uuid
+    val appointmentBpUuidOfNoBpsDeletedPatient = overdueAppointments.getValue(noBpsDeletedPatientUuid).bloodPressure?.uuid
+    val appointmentBpUuidOfLatestBpDeletedPatient = overdueAppointments.getValue(latestBpDeletedPatientUuid).bloodPressure?.uuid
+    val appointmentBpUuidOfOldestBpDeletedPatient = overdueAppointments.getValue(oldestBpNotDeletedPatientUuid).bloodPressure?.uuid
 
     assertThat(appointmentBpUuidOfNoBpsDeletedPatient).isEqualTo(bpsForPatientWithNoBpsDeleted[1].uuid)
     assertThat(appointmentBpUuidOfLatestBpDeletedPatient).isEqualTo(bpsForPatientWithLatestBpDeleted[1].uuid)
@@ -1079,7 +1087,11 @@ class AppointmentRepositoryAndroidTest {
           agreedToVisit = null
       )
 
-      return RecordAppointment(patientProfile, bloodPressureMeasurement, appointment)
+      return RecordAppointment(
+          patientProfile = patientProfile,
+          bloodPressureMeasurement = bloodPressureMeasurement,
+          appointment = appointment
+      )
     }
 
     // given
@@ -1114,7 +1126,7 @@ class AppointmentRepositoryAndroidTest {
     )
 
     listOf(oneWeekBeforeCurrentDate, oneDayBeforeCurrentDate, onCurrentDate, afterCurrentDate)
-        .forEach { it.save(patientRepository, bpRepository, appointmentRepository) }
+        .forEach { it.save(patientRepository, bpRepository, bloodSugarRepository, appointmentRepository) }
 
     // when
     val overdueAppointments = appointmentRepository
@@ -1165,7 +1177,11 @@ class AppointmentRepositoryAndroidTest {
           agreedToVisit = null
       )
 
-      return RecordAppointment(patientProfile, bloodPressureMeasurement, appointment)
+      return RecordAppointment(
+          patientProfile = patientProfile,
+          bloodPressureMeasurement = bloodPressureMeasurement,
+          appointment = appointment
+      )
     }
 
     // given
@@ -1198,7 +1214,7 @@ class AppointmentRepositoryAndroidTest {
     )
 
     listOf(remindOneWeekBeforeCurrentDate, remindOneDayBeforeCurrentDate, remindOnCurrentDate, remindAfterCurrentDate)
-        .forEach { it.save(patientRepository, bpRepository, appointmentRepository) }
+        .forEach { it.save(patientRepository, bpRepository, bloodSugarRepository, appointmentRepository) }
 
     // when
     val overdueAppointments = appointmentRepository
@@ -1250,7 +1266,11 @@ class AppointmentRepositoryAndroidTest {
           agreedToVisit = null
       )
 
-      return RecordAppointment(patientProfile, bloodPressureMeasurement, appointment)
+      return RecordAppointment(
+          patientProfile = patientProfile,
+          bloodPressureMeasurement = bloodPressureMeasurement,
+          appointment = appointment
+      )
     }
 
     // given
@@ -1276,7 +1296,7 @@ class AppointmentRepositoryAndroidTest {
     )
 
     listOf(withPhoneNumber, withDeletedPhoneNumber, withoutPhoneNumber)
-        .forEach { it.save(patientRepository, bpRepository, appointmentRepository) }
+        .forEach { it.save(patientRepository, bpRepository, bloodSugarRepository, appointmentRepository) }
 
     // when
     val overdueAppointments = appointmentRepository
@@ -1325,7 +1345,7 @@ class AppointmentRepositoryAndroidTest {
           agreedToVisit = null
       )
 
-      return RecordAppointment(patientProfile, bloodPressureMeasurement, appointment)
+      return RecordAppointment(patientProfile, bloodPressureMeasurement, appointment = appointment)
     }
 
     // given
@@ -1342,7 +1362,7 @@ class AppointmentRepositoryAndroidTest {
     )
 
     listOf(withBloodPressure, withoutBloodPressure)
-        .forEach { it.save(patientRepository, bpRepository, appointmentRepository) }
+        .forEach { it.save(patientRepository, bpRepository, bloodSugarRepository, appointmentRepository) }
 
     // when
     val overdueAppointments = appointmentRepository
@@ -1353,6 +1373,149 @@ class AppointmentRepositoryAndroidTest {
     val expectedAppointments = listOf(withBloodPressure).map(RecordAppointment::toOverdueAppointment)
 
     assertThat(overdueAppointments).containsExactlyElementsIn(expectedAppointments)
+  }
+
+  @Test
+  fun patients_without_blood_pressure_but_with_blood_sugars_should_be_included_in_overdue_list() {
+
+    data class BP(val systolic: Int, val diastolic: Int)
+
+    fun savePatientBloodPressureAndBloodSugar(
+        patientUuid: UUID,
+        appointmentUuid: UUID = UUID.randomUUID(),
+        fullName: String,
+        bps: List<BP> = emptyList(),
+        bloodSugars: List<BloodSugarReading> = emptyList(),
+        hasHadHeartAttack: Answer = No,
+        hasHadStroke: Answer = No,
+        hasDiabetes: Answer = No,
+        hasHadKidneyDisease: Answer = No,
+        appointmentHasBeenOverdueFor: Duration
+    ) {
+      val patientProfile = testData.patientProfile(
+          patientUuid = patientUuid,
+          patientName = fullName,
+          generatePhoneNumber = true,
+          generateBusinessId = false
+      )
+      patientRepository.save(listOf(patientProfile)).blockingAwait()
+
+      val scheduledDate = (LocalDateTime.now(clock) - appointmentHasBeenOverdueFor).toLocalDate()
+      appointmentRepository.schedule(
+          patientUuid = patientUuid,
+          appointmentUuid = appointmentUuid,
+          appointmentDate = scheduledDate,
+          appointmentType = Manual,
+          appointmentFacilityUuid = facility.uuid,
+          creationFacilityUuid = facility.uuid
+      ).blockingGet()
+
+      val bloodPressureMeasurements = bps.mapIndexed { index, (systolic, diastolic) ->
+
+        val bpTimestamp = Instant.now(clock).plusSeconds(index.toLong() + 1)
+
+        testData.bloodPressureMeasurement(
+            patientUuid = patientUuid,
+            systolic = systolic,
+            diastolic = diastolic,
+            userUuid = userUuid,
+            facilityUuid = facility.uuid,
+            recordedAt = bpTimestamp,
+            createdAt = bpTimestamp,
+            updatedAt = bpTimestamp
+        )
+      }
+      bpRepository.save(bloodPressureMeasurements).blockingAwait()
+
+      val bloodSugarMeasurements = bloodSugars.mapIndexed { index, bloodSugarReading ->
+
+        val bpTimestamp = Instant.now(clock).plusSeconds(index.toLong() + 1)
+
+        testData.bloodSugarMeasurement(
+            patientUuid = patientUuid,
+            reading = bloodSugarReading,
+            userUuid = userUuid,
+            facilityUuid = facility.uuid,
+            recordedAt = bpTimestamp,
+            createdAt = bpTimestamp,
+            updatedAt = bpTimestamp
+        )
+      }
+      bloodSugarRepository.save(bloodSugarMeasurements).blockingAwait()
+
+      medicalHistoryRepository.save(patientUuid, OngoingMedicalHistoryEntry(
+          hasHadHeartAttack = hasHadHeartAttack,
+          hasHadStroke = hasHadStroke,
+          hasHadKidneyDisease = hasHadKidneyDisease,
+          hasDiabetes = hasDiabetes
+      )).blockingAwait()
+      clock.advanceBy(Duration.ofSeconds(bps.size + bloodSugars.size + 1L))
+    }
+
+    // when
+    val thirtyDays = Duration.ofDays(30)
+    val threeFiftyDays = Duration.ofDays(350)
+
+    savePatientBloodPressureAndBloodSugar(
+        patientUuid = UUID.fromString("b408f97b-0c1c-41ac-b63d-2d6f5811d22c"),
+        fullName = "Diastolic > 110, overdue == 3 days",
+        bps = listOf(BP(systolic = 100, diastolic = 9000)),
+        appointmentHasBeenOverdueFor = Duration.ofDays(3)
+    )
+
+    savePatientBloodPressureAndBloodSugar(
+        patientUuid = UUID.fromString("d815ca26-b5f5-488e-a083-1946556993c5"),
+        fullName = "FBS = 199, overdue = 30 days",
+        bloodSugars = listOf(BloodSugarReading(199, Fasting)),
+        appointmentHasBeenOverdueFor = thirtyDays
+    )
+
+    savePatientBloodPressureAndBloodSugar(
+        patientUuid = UUID.fromString("21d54d0e-dba1-4823-9b71-1d428a8e1a19"),
+        fullName = "FBS = 200, overdue = 30 days",
+        bloodSugars = listOf(BloodSugarReading(200, Fasting)),
+        appointmentHasBeenOverdueFor = thirtyDays
+    )
+
+    savePatientBloodPressureAndBloodSugar(
+        patientUuid = UUID.fromString("1da72cec-fa4a-4d7b-aec8-cefdbae51f90"),
+        fullName = "FBS = 201, overdue = 30 days",
+        bloodSugars = listOf(BloodSugarReading(201, Fasting)),
+        appointmentHasBeenOverdueFor = thirtyDays
+    )
+
+    savePatientBloodPressureAndBloodSugar(
+        patientUuid = UUID.fromString("4bd709ce-5fd3-47b2-95d3-2796b8b12916"),
+        fullName = "RBS = 299, overdue = 30 days",
+        bloodSugars = listOf(BloodSugarReading(299, Random)),
+        appointmentHasBeenOverdueFor = thirtyDays
+    )
+
+    savePatientBloodPressureAndBloodSugar(
+        patientUuid = UUID.fromString("627f96dd-b8f6-428e-a68b-55f2b09447ef"),
+        fullName = "RBS = 300, overdue = 30 days",
+        bloodSugars = listOf(BloodSugarReading(300, Random)),
+        appointmentHasBeenOverdueFor = thirtyDays
+    )
+
+    savePatientBloodPressureAndBloodSugar(
+        patientUuid = UUID.fromString("e66a1cf7-5970-426c-a87c-3402c832400a"),
+        fullName = "RBS = 301, overdue = 30 days",
+        bloodSugars = listOf(BloodSugarReading(301, Random)),
+        appointmentHasBeenOverdueFor = thirtyDays
+    )
+
+    // then
+    val overdueAppointments = appointmentRepository.overdueAppointments(since = LocalDate.now(clock), facility = facility).blockingFirst()
+    assertThat(overdueAppointments.map { it.fullName to it.isAtHighRisk }).isEqualTo(listOf(
+        "Diastolic > 110, overdue == 3 days" to true,
+        "FBS = 200, overdue = 30 days" to true,
+        "FBS = 201, overdue = 30 days" to true,
+        "RBS = 300, overdue = 30 days" to true,
+        "RBS = 301, overdue = 30 days" to true,
+        "FBS = 199, overdue = 30 days" to false,
+        "RBS = 299, overdue = 30 days" to false
+    ))
   }
 
   private fun markAppointmentSyncStatusAsDone(vararg appointmentUuids: UUID) {
@@ -1366,19 +1529,26 @@ class AppointmentRepositoryAndroidTest {
   data class RecordAppointment(
       val patientProfile: PatientProfile,
       val bloodPressureMeasurement: BloodPressureMeasurement?,
+      val bloodSugarMeasurement: BloodSugarMeasurement? = null,
       val appointment: Appointment
   ) {
     fun save(
         patientRepository: PatientRepository,
         bloodPressureRepository: BloodPressureRepository,
+        bloodSugarRepository: BloodSugarRepository,
         appointmentRepository: AppointmentRepository
     ) {
       val saveBp = if (bloodPressureMeasurement != null) {
         bloodPressureRepository.save(listOf(bloodPressureMeasurement))
       } else Completable.complete()
 
+      val saveBloodSugar = if (bloodSugarMeasurement != null) {
+        bloodSugarRepository.save(listOf(bloodSugarMeasurement))
+      } else Completable.complete()
+
       patientRepository.save(listOf(patientProfile))
           .andThen(saveBp)
+          .andThen(saveBloodSugar)
           .andThen(appointmentRepository.save(listOf(appointment)))
           .blockingAwait()
     }

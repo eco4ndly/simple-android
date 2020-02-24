@@ -28,7 +28,7 @@ data class OverdueAppointment(
     val appointment: Appointment,
 
     @Embedded(prefix = "bp_")
-    val bloodPressure: BloodPressureMeasurement,
+    val bloodPressure: BloodPressureMeasurement?,
 
     @Embedded(prefix = "phone_")
     val phoneNumber: PatientPhoneNumber?,
@@ -58,6 +58,8 @@ data class OverdueAppointment(
 
           (
             CASE
+              WHEN BloodSugar.reading_type = "fasting" AND BloodSugar.reading_value >= 200 THEN 1
+              WHEN BloodSugar.reading_type = "random" AND BloodSugar.reading_value >= 300 THEN 1
               WHEN BP.systolic >= 180 OR BP.diastolic >= 110 THEN 1
               WHEN (MH.hasHadHeartAttack = :yesAnswer OR MH.hasHadStroke = :yesAnswer) AND (BP.systolic >= 140 OR BP.diastolic >= 110) 
                 THEN 1 
@@ -68,7 +70,8 @@ data class OverdueAppointment(
           FROM Patient P
 
           INNER JOIN Appointment A ON A.patientUuid = P.uuid
-          INNER JOIN BloodPressureMeasurement BP ON (BP.patientUuid = P.uuid AND BP.deletedAt IS NULL)
+          LEFT JOIN BloodPressureMeasurement BP ON (BP.patientUuid = P.uuid AND BP.deletedAt IS NULL)
+          LEFT JOIN BloodSugarMeasurements BloodSugar ON (BloodSugar.patientUuid = P.uuid AND BloodSugar.deletedAt IS NULL)
           LEFT JOIN PatientPhoneNumber PPN ON (PPN.patientUuid = P.uuid AND PPN.deletedAt IS NULL)
           LEFT JOIN MedicalHistory MH ON MH.patientUuid = P.uuid
 
@@ -82,7 +85,7 @@ data class OverdueAppointment(
             AND PPN.number IS NOT NULL
             AND (A.remindOn < :scheduledBefore OR A.remindOn IS NULL)
 
-          GROUP BY P.uuid HAVING max(BP.recordedAt)
+          GROUP BY P.uuid HAVING ifnull(max(BP.recordedAt), max(BloodSugar.recordedAt))
           ORDER BY isAtHighRisk DESC, A.scheduledDate DESC, A.updatedAt ASC
           """)
     fun appointmentsForFacility(
