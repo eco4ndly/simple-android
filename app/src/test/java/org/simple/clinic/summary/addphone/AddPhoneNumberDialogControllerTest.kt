@@ -65,12 +65,9 @@ class AddPhoneNumberDialogControllerTest {
   }
 
   @Test
-  @Parameters(method = "validation errors")
-  fun `when save is clicked, the number should not be saved if it's invalid`(
-      validationError: Result
-  ) {
+  fun `when save is clicked, the number should not be saved if it's invalid`() {
     val newNumber = "123"
-    whenever(validator.validate(newNumber, type = LANDLINE_OR_MOBILE)).thenReturn(validationError)
+    whenever(validator.validate(newNumber, type = LANDLINE_OR_MOBILE)).thenReturn(LENGTH_TOO_SHORT)
     whenever(repository.createPhoneNumberForPatient(any(), any(), any(), any())).thenReturn(Completable.complete())
 
     uiEvents.onNext(AddPhoneNumberDialogCreated(patientUuid))

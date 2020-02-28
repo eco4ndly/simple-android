@@ -21,6 +21,7 @@ import java.util.concurrent.LinkedBlockingDeque
 class RxErrorsRule : TestRule {
 
   private val errors = LinkedBlockingDeque<Throwable>()
+  private val subscriptionTracker = RxJavaSubscriptionTracker()
 
   override fun apply(base: Statement, description: Description): Statement {
     return object : Statement() {
@@ -28,13 +29,18 @@ class RxErrorsRule : TestRule {
         Traceur.enableLogging()
         RxJavaPlugins.setErrorHandler { t -> errors.add(t) }
 
+        subscriptionTracker.startTracking()
+
         try {
           base.evaluate()
 
         } finally {
           Traceur.disableLogging()
           RxJavaPlugins.setErrorHandler(null)
+          subscriptionTracker.stopTracking()
+
           assertNoErrors()
+          subscriptionTracker.assertAllCompletablesSubscribed()
         }
       }
     }
