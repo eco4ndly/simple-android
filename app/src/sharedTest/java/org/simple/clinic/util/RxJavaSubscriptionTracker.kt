@@ -23,13 +23,16 @@ class RxJavaSubscriptionTracker {
     RxJavaPlugins.setOnCompletableAssembly(null)
   }
 
-  fun assertAllCompletablesSubscribed() {
+  fun assertAllCompletablesSubscribed(
+      expectUnsubscribed: ExpectUnsubscribed? = null
+  ) {
     val assembledCount = assembledCompletables.size
     val subscribedCount = assembledCompletables.count { it.hasBeenSubscribedTo }
-    val haveAllBeenSubscribed = assembledCount == subscribedCount
+    val expectedUnsubscribedCount = expectUnsubscribed?.completables ?: 0
+    val totalUnsubscribedCount = assembledCount - subscribedCount
 
-    if (!haveAllBeenSubscribed) {
-      throw AssertionError("Assembled $assembledCount Completables, but only subscribed to $subscribedCount!")
+    if (totalUnsubscribedCount != expectedUnsubscribedCount) {
+      throw AssertionError("Assembled $assembledCount Completables, but only subscribed to $subscribedCount, expecting $expectedUnsubscribedCount to not be subscribed")
     }
   }
 

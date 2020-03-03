@@ -40,7 +40,7 @@ class RxErrorsRule : TestRule {
           subscriptionTracker.stopTracking()
 
           assertNoErrors()
-          subscriptionTracker.assertAllCompletablesSubscribed()
+          subscriptionTracker.assertAllCompletablesSubscribed(description.getAnnotation(ExpectUnsubscribed::class.java))
         }
       }
     }
