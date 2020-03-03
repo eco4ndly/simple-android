@@ -41,6 +41,7 @@ import org.simple.clinic.patient.PatientProfile
 import org.simple.clinic.patient.PatientRepository
 import org.simple.clinic.registration.phone.IndianPhoneNumberValidator
 import org.simple.clinic.user.UserSession
+import org.simple.clinic.util.ExpectUnsubscribed
 import org.simple.clinic.util.RxErrorsRule
 import org.simple.clinic.util.TestUserClock
 import org.simple.clinic.util.TestUtcClock
@@ -77,6 +78,7 @@ class EditPatientScreenFormTest {
 
   @Test
   @Parameters(method = "params for hiding errors on text changes")
+  @ExpectUnsubscribed(completables = 2)
   fun `when input changes, errors corresponding to the input must be hidden`(textChangeParams: HidingErrorsOnTextChangeParams) {
     val (inputChange, expectedErrorsToHide) = textChangeParams
 

@@ -23,6 +23,7 @@ import org.simple.clinic.registration.phone.PhoneNumberValidator.Result.LENGTH_T
 import org.simple.clinic.registration.phone.PhoneNumberValidator.Result.VALID
 import org.simple.clinic.registration.phone.PhoneNumberValidator.Result.values
 import org.simple.clinic.registration.phone.PhoneNumberValidator.Type.LANDLINE_OR_MOBILE
+import org.simple.clinic.util.ExpectUnsubscribed
 import org.simple.clinic.util.RxErrorsRule
 import org.simple.clinic.util.exhaustive
 import org.simple.clinic.widgets.UiEvent
@@ -65,6 +66,7 @@ class AddPhoneNumberDialogControllerTest {
   }
 
   @Test
+  @ExpectUnsubscribed(completables = 1)
   fun `when save is clicked, the number should not be saved if it's invalid`() {
     val newNumber = "123"
     whenever(validator.validate(newNumber, type = LANDLINE_OR_MOBILE)).thenReturn(LENGTH_TOO_SHORT)
