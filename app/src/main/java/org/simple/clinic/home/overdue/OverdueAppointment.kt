@@ -58,6 +58,13 @@ data class OverdueAppointment(
 
           (
             CASE
+              WHEN BP.recordedAt != null AND BloodSugar.recordedAt != null THEN max(BP.recordedAt, BloodSugar.recordedAt)
+              ELSE ifnull(BP.recordedAt, BloodSugar.recordedAt)
+            END
+          ) AS patientLastSeen,
+
+          (
+            CASE
               WHEN BloodSugar.reading_type = "fasting" AND BloodSugar.reading_value >= 200 THEN 1
               WHEN BloodSugar.reading_type = "random" AND BloodSugar.reading_value >= 300 THEN 1
               WHEN BP.systolic >= 180 OR BP.diastolic >= 110 THEN 1
@@ -71,7 +78,7 @@ data class OverdueAppointment(
 
           INNER JOIN Appointment A ON A.patientUuid = P.uuid
           LEFT JOIN BloodPressureMeasurement BP ON (BP.patientUuid = P.uuid AND BP.deletedAt IS NULL)
-          LEFT JOIN BloodSugarMeasurements BloodSugar ON (BloodSugar.patientUuid = P.uuid AND BloodSugar.deletedAt IS NULL)
+          LEFT JOIN BloodSugarMeasurements BloodSugar ON (BloodSugar.patientUuid == P.uuid AND BloodSugar.deletedAt IS NULL)
           LEFT JOIN PatientPhoneNumber PPN ON (PPN.patientUuid = P.uuid AND PPN.deletedAt IS NULL)
           LEFT JOIN MedicalHistory MH ON MH.patientUuid = P.uuid
 
@@ -84,8 +91,9 @@ data class OverdueAppointment(
             AND A.scheduledDate > :scheduledAfter
             AND PPN.number IS NOT NULL
             AND (A.remindOn < :scheduledBefore OR A.remindOn IS NULL)
+            AND (BP.recordedAt IS NOT NULL OR BloodSugar.recordedAt IS NOT NULL)
 
-          GROUP BY P.uuid HAVING ifnull(max(BP.recordedAt), max(BloodSugar.recordedAt))
+          GROUP BY P.uuid HAVING max(patientLastSeen)
           ORDER BY isAtHighRisk DESC, A.scheduledDate DESC, A.updatedAt ASC
           """)
     fun appointmentsForFacility(
