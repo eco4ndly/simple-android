@@ -489,7 +489,7 @@ class TestData @Inject constructor(
   fun bloodSugarPayload(
       uuid: UUID = UUID.randomUUID(),
       bloodSugarType: BloodSugarMeasurementType = BloodSugarMeasurementType.random(),
-      bloodSugarValue: Int = faker.number.between(0, 300),
+      bloodSugarValue: Float = faker.number.between(0, 300).toFloat(),
       patientUuid: UUID = UUID.randomUUID(),
       facilityUuid: UUID = qaUserFacilityUuid(),
       userUuid: UUID = qaUserUuid(),
