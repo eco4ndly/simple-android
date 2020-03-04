@@ -1429,16 +1429,16 @@ class AppointmentRepositoryAndroidTest {
 
       val bloodSugarMeasurements = bloodSugars.mapIndexed { index, bloodSugarReading ->
 
-        val bpTimestamp = Instant.now(clock).plusSeconds(index.toLong() + 1)
+        val bloodSugarTimestamp = Instant.now(clock).plusSeconds(index.toLong() + 1)
 
         testData.bloodSugarMeasurement(
             patientUuid = patientUuid,
             reading = bloodSugarReading,
             userUuid = userUuid,
             facilityUuid = facility.uuid,
-            recordedAt = bpTimestamp,
-            createdAt = bpTimestamp,
-            updatedAt = bpTimestamp
+            recordedAt = bloodSugarTimestamp,
+            createdAt = bloodSugarTimestamp,
+            updatedAt = bloodSugarTimestamp
         )
       }
       bloodSugarRepository.save(bloodSugarMeasurements).blockingAwait()
