@@ -1504,6 +1504,16 @@ class AppointmentRepositoryAndroidTest {
         appointmentHasBeenOverdueFor = thirtyDays
     )
 
+    savePatientBloodPressureAndBloodSugar(
+        patientUuid = UUID.fromString("172b95be-075c-42ca-82bb-78e743250457"),
+        fullName = "Latest RBS = 200, overdue = 30 days",
+        bloodSugars = listOf(
+            BloodSugarReading(301, Random),
+            BloodSugarReading(200, Random)
+        ),
+        appointmentHasBeenOverdueFor = thirtyDays
+    )
+
     // then
     val overdueAppointments = appointmentRepository.overdueAppointments(since = LocalDate.now(clock), facility = facility).blockingFirst()
     assertThat(overdueAppointments.map { it.fullName to it.isAtHighRisk }).isEqualTo(listOf(
@@ -1513,7 +1523,8 @@ class AppointmentRepositoryAndroidTest {
         "RBS = 300, overdue = 30 days" to true,
         "RBS = 301, overdue = 30 days" to true,
         "FBS = 199, overdue = 30 days" to false,
-        "RBS = 299, overdue = 30 days" to false
+        "RBS = 299, overdue = 30 days" to false,
+        "Latest RBS = 200, overdue = 30 days" to false
     ))
   }
 
