@@ -1454,7 +1454,6 @@ class AppointmentRepositoryAndroidTest {
 
     // when
     val thirtyDays = Duration.ofDays(30)
-    val threeFiftyDays = Duration.ofDays(350)
 
     savePatientBloodPressureAndBloodSugar(
         patientUuid = UUID.fromString("b408f97b-0c1c-41ac-b63d-2d6f5811d22c"),
