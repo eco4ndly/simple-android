@@ -1412,7 +1412,8 @@ class AppointmentRepositoryAndroidTest {
 
       val bloodPressureMeasurements = bps.mapIndexed { index, (systolic, diastolic) ->
 
-        val bpTimestamp = Instant.now(clock).plusSeconds(index.toLong() + 1)
+        clock.advanceBy(Duration.ofSeconds(1L))
+        val bpTimestamp = Instant.now(clock)
 
         testData.bloodPressureMeasurement(
             patientUuid = patientUuid,
@@ -1429,7 +1430,8 @@ class AppointmentRepositoryAndroidTest {
 
       val bloodSugarMeasurements = bloodSugars.mapIndexed { index, bloodSugarReading ->
 
-        val bloodSugarTimestamp = Instant.now(clock).plusSeconds(index.toLong() + 1)
+        clock.advanceBy(Duration.ofSeconds(1L))
+        val bloodSugarTimestamp = Instant.now(clock)
 
         testData.bloodSugarMeasurement(
             patientUuid = patientUuid,
@@ -1449,7 +1451,6 @@ class AppointmentRepositoryAndroidTest {
           hasHadKidneyDisease = hasHadKidneyDisease,
           hasDiabetes = hasDiabetes
       )).blockingAwait()
-      clock.advanceBy(Duration.ofSeconds(bps.size + bloodSugars.size + 1L))
     }
 
     // when
@@ -1514,6 +1515,17 @@ class AppointmentRepositoryAndroidTest {
         appointmentHasBeenOverdueFor = thirtyDays
     )
 
+    savePatientBloodPressureAndBloodSugar(
+        patientUuid = UUID.fromString("9f84c79a-0b27-4aeb-a8fa-bd32df370592"),
+        fullName = "BP = 120/80, RBS = 200, overdue = 30 days",
+        bps = listOf(BP(systolic = 120, diastolic = 80)),
+        bloodSugars = listOf(
+            BloodSugarReading(301, Random),
+            BloodSugarReading(200, Random)
+        ),
+        appointmentHasBeenOverdueFor = thirtyDays
+    )
+
     // then
     val overdueAppointments = appointmentRepository.overdueAppointments(since = LocalDate.now(clock), facility = facility).blockingFirst()
     assertThat(overdueAppointments.map { it.fullName to it.isAtHighRisk }).isEqualTo(listOf(
@@ -1524,7 +1536,8 @@ class AppointmentRepositoryAndroidTest {
         "RBS = 301, overdue = 30 days" to true,
         "FBS = 199, overdue = 30 days" to false,
         "RBS = 299, overdue = 30 days" to false,
-        "Latest RBS = 200, overdue = 30 days" to false
+        "Latest RBS = 200, overdue = 30 days" to false,
+        "BP = 120/80, RBS = 200, overdue = 30 days" to false
     ))
   }
 
